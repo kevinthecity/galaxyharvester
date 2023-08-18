@@ -38,6 +38,7 @@ from hashlib import md5 as md5fun
 from jinja2 import Environment, FileSystemLoader
 sys.path.append("../")
 import ghShared
+import env
 import dbSession
 import dbShared
 import ghLists
@@ -725,11 +726,11 @@ def renderHtmlHeader(title=None, links=[]):
             uiTheme = 'crafter'
 
     pictureName = dbShared.getUserAttr(currentUser, 'pictureName')
-    env = Environment(loader=FileSystemLoader('templates'))
-    env.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
+    environ = Environment(loader=FileSystemLoader('templates'))
+    environ.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
     if 'HTTP_USER_AGENT' in os.environ:
-        env.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(os.environ['HTTP_USER_AGENT'])
-    template = env.get_template('blog.html')
+        environ.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(os.environ['HTTP_USER_AGENT'])
+    template = environ.get_template('blog.html')
 
     #################################################
     print("Content-Type: text/html; charset=%s\n" % encoding)
@@ -847,7 +848,7 @@ def renderHtmlHeader(title=None, links=[]):
     #print "</head>"
     #print "<body>"
     ##################################
-    print(template.render(uiTheme=uiTheme, loggedin=logged_state, currentUser=currentUser, loginResult=loginResult, linkappend=linkappend, url='/blog.py', pictureName=pictureName, imgNum=ghShared.imgNum, galaxyList=ghLists.getGalaxyList(), enableCAPTCHA=ghShared.RECAPTCHA_ENABLED, siteidCAPTCHA=ghShared.RECAPTCHA_SITEID))
+    print(template.render(uiTheme=uiTheme, loggedin=logged_state, currentUser=currentUser, loginResult=loginResult, linkappend=linkappend, url='/blog.py', pictureName=pictureName, imgNum=ghShared.imgNum, galaxyList=ghLists.getGalaxyList(), enableCAPTCHA=env.RECAPTCHA_ENABLED, siteidCAPTCHA=env.RECAPTCHA_SITEID))
     print("<div id=\"blogBox\" class=\"ghWidgetBox\">")
     #############################################
     print("<div id=\"content1\">")

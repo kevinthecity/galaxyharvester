@@ -33,7 +33,7 @@ import dbShared
 import urllib.parse
 import datetime
 sys.path.append("../")
-import dbInfo
+import env
 
 C = cookies.SimpleCookie()
 useCookies = 1
@@ -80,7 +80,7 @@ else:
 		exactUser = row[0]
         # New hash date is when salt that goes with password to create hash was
         # changed from loginp to DB_KEY3 since loginp did not always exactly match username
-		newHash = dbInfo.DB_KEY3 + passp
+		newHash = env.DB_KEY3 + passp
 		oldHash = loginp + passp
 		if row[3] > newhashDate or (row[4] != None and row[4] > newhashDate):
 			crypt_pass = hashlib.sha1(newHash.encode()).hexdigest()

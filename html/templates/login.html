@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>Home - Galaxy Harvester</title>
+  <meta name="description"
+    content="Tool for tracking resources spawning in galaxies of the MMO game Star Wars Galaxies that are emulating original game functionality." />
+  <meta name="keywords" content="SWGEmu, crafting, resources, star wars galaxies, harvester" />
+  <link rel="SHORTCUT ICON" href="favicon.ico" />
+  <script src="/js/Colors.js"></script>
+  <meta property="og:locale" content="en_US">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Galaxy Harvester">
+  <link rel="stylesheet" type="text/css" href="/style/ghCore.css" media="screen" />
+  <link rel="stylesheet" type="text/css" href="/style/themes/crafter.css" media="screen" />
+  <link rel="stylesheet" type="text/css" href="/style/autocomplete.css" media="screen" />
+  <script src="/js/ghShared.js" type="text/javascript"></script>
+  <script src="/js/jquery.min.js"></script>
+  <script src="/js/jquery.autocomplete-min.js"></script>
+  <script type="text/javascript">
+    $(document).ready(function () {
+      $(".window .close").click(function (e) {
+        e.preventDefault();
+        $("#mask, .window").hide();
+      });
+    });
+  </script>
+  <script>
+    function onJoinSubmit(token) {
+      $("#joinWait").css("display", "block");
+      document.getElementById("createuform").submit();
+    }
+  </script>
+  {% if ( enableCAPTCHA ) %}
+  <script src="https://www.google.com/recaptcha/api.js"></script>
+  {% endif %}
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+    }
+
+    .flex-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .self-center {
+      align-self: center;
+    }
+
+    .flex-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 2px;
+    }
+
+    .input-field {
+      width: 120px;
+    }
+
+    .input-label {
+      width: 50px;
+    }
+
+    .flex-col {
+      flex-direction: column;
+    }
+
+    .align-center {
+      align-items: center;
+    }
+
+    .justify-center {
+      justify-content: center;
+    }
+
+    .self-center {
+      align-self: center;
+    }
+
+    .flex {
+      display: flex;
+    }
+
+    .login-wrapper {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+      max-width: 200px;
+    }
+
+    .top-margin-10 {
+      margin-top: 10px;
+    }
+
+    .top-margin-10 {
+      margin-top: 10px;
+    }
+
+    .margin-top-bottom {
+      margin-top: 5px;
+      margin-bottom: 5px;
+    }
+
+  </style>
+</head>
+
+<body>
+  <div id="topBar" class="flex-container align-center">
+    <div class="login-wrapper">
+      <div class="ghWidgetBox flex flex-col">
+        <form method="POST" action="{{ BASE_SCRIPT_URL }}authUser.py" name="flogin" id="flogin" class="flex flex-col">
+
+          <div class="flex-row">
+            <label for="loginu" class="input-label">username:</label>
+            <input type="text" id="loginu" name="loginu" value="{{ currentUser }}" maxlength="32"
+              class="inactive input-field" />
+          </div>
+
+          <div class="flex-row">
+            <label for="passu" class="input-label">password:</label>
+            <input type="password" id="passu" name="passu" maxlength="16" class="inactive input-field" />
+          </div>
+
+          {% if loginResult != 'success' and loginResult != '' %}
+          <div class="flex-row justify-center">Your Login Failed: {{ loginResult }}</div>
+          {% endif %}
+          
+          <input type="hidden" name="src_url" value="{{ url }}" />
+          <div class="flex justify-center top-margin-10">  
+            <input type="submit" value="Login" id="logbutton" class="ghButton" class="self-center" />
+          </div>
+        </form>
+        <a href="#joinDialog" id="goJoin" class="self-center margin-top-bottom">Create account</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="joinDialog" class="window">
+    <form name="createuform" id="createuform" method="post" action="{{ BASE_SCRIPT_URL }}createUser.py"
+      enctype="application/x-www-form-urlencoded">
+      <table class="bigForm">
+        <tr>
+          <td colspan="2">
+            <h2>Join Galaxy Harvester</h2>
+          </td>
+          <td align="right"><a href="#" class="close">Close</a></td>
+        </tr>
+        <tr>
+          <td align="right" width="100">Username: </td>
+          <td><input type="text" name="uname" tabindex="10" size="12" maxlength="32"
+              onchange="valMinLength(this,document.getElementById('loginInf'),3)"
+              onblur="checkUserName(this.value, '')" /></td>
+          <td><span id="loginInf" class="formMsg">Login must be at least 3 characters.</span><span id="idInfo"
+              class="content"></span><br /></td>
+        </tr>
+        <tr>
+          <td align="right">Email Addr: </td>
+          <td><input type="text" name="email" tabindex="11" size="24" maxlength="255" onchange="valEmail(this)" />
+          </td>
+          <td><span id="emailInf" class="formMsg">Please enter a valid e-mail.</span></td>
+        </tr>
+        <tr>
+          <td align="right">Password: </td>
+          <td><input type="password" name="userpass" tabindex="12" size="12" maxlength="16"
+              onchange="valMinLength(this,document.getElementById('passInf'),6)" id="userpass" /></td>
+          <td><span id="passInf" class="formMsg">Password must be at least 6 characters.</span><br /></td>
+        </tr>
+        <tr>
+          <td align="right">Verify Pwd: </td>
+          <td><input type="password" name="verifypass" tabindex="13" size="12" maxlength="16"
+              onchange="valVpass(&quot;userpass&quot;,this)" /></td>
+          <td><span id="vpassInf" class="formMsg">Passwords do not match.</span></td>
+        </tr>
+      </table>
+      <div style="text-align: center;padding: 20px;">
+        <button class="g-recaptcha ghButton" data-sitekey="{{ siteidCAPTCHA }}" data-callback='onJoinSubmit'
+          data-action='submitJoin' tabindex="14">Create<img src="/images/ghWait.gif" id="joinWait"
+            style="display:none;" /></button>
+      </div>
+    </form>
+    <div class="tip"><a href="/privacy.html" target="_blank">Privacy Policy</a>
+      {% if enableCAPTCHA %}
+      <br /><small>This site is protected by reCAPTCHA and the Google
+        <a href="https://policies.google.com/privacy">Privacy Policy</a> and
+        <a href="https://policies.google.com/terms">Terms of Service</a> apply.</small>
+      {% endif %}
+    </div>
+  </div>
+  <script type="text/javascript">
+    function checkUserName(loginID, status) {
+      $("span#idInfo").load("{{ BASE_SCRIPT_URL }}nameAvailable.py", { uname: loginID });
+    }
+    $("#goJoin").click(function (e) {
+      e.preventDefault();
+      var id = $(this).attr("href");
+      var maskHeight = $(document).height();
+      var maskWidth = $(document).width();
+      $("#mask").css({ "width": maskWidth, "height": maskHeight });
+      $("#mask").fadeIn(1000);
+      $("#mask").fadeTo("slow", 0.8);
+      var winH = $(window).height();
+      var winW = $(window).width();
+      $(id).css("top", winH / 2 - $(id).height() / 2);
+      $(id).css("left", winW / 2 - $(id).width() / 2);
+      $(id).fadeIn(1000);
+    });
+  </script>
+</body>
+
+</html>

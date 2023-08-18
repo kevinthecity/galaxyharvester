@@ -27,6 +27,7 @@ from http import cookies
 import dbSession
 import pymysql
 import ghShared
+import env
 import ghLists
 import ghNames
 import dbShared
@@ -312,16 +313,16 @@ def main():
 
 	pictureName = dbShared.getUserAttr(currentUser, 'pictureName')
 	print('Content-type: text/html\n')
-	env = Environment(loader=FileSystemLoader('templates'))
-	env.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
-	env.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(os.environ['HTTP_USER_AGENT'])
+	environ = Environment(loader=FileSystemLoader('templates'))
+	environ.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
+	environ.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(os.environ['HTTP_USER_AGENT'])
 	groupListShort = ""
 	if forceOp == 'edit':
 		groupListShort=ghLists.getResourceGroupListShort()
-		template = env.get_template('schematiceditor.html')
+		template = environ.get_template('schematiceditor.html')
 	else:
-		template = env.get_template('schematics.html')
-	print(template.render(uiTheme=uiTheme, loggedin=logged_state, currentUser=currentUser, loginResult=loginResult, linkappend=linkappend, url=url, pictureName=pictureName, imgNum=ghShared.imgNum, galaxyList=ghLists.getGalaxyList(), professionList=ghLists.getProfessionList(galaxy), schematicTabList=ghLists.getSchematicTabList(), objectTypeList=ghLists.getObjectTypeList(), noenergyTypeList=ghLists.getOptionList('SELECT resourceType, resourceTypeName FROM tResourceType WHERE resourceCategory != "energy" ORDER BY resourceTypeName;'), resourceGroupList=ghLists.getResourceGroupList(), resourceGroupListShort=groupListShort, statList=ghLists.getStatList(), schematicID=schematicID, schematic=s, favHTML=favHTML, canEdit=canEdit, profession=profession, canAdd=canAdd, enableCAPTCHA=ghShared.RECAPTCHA_ENABLED, siteidCAPTCHA=ghShared.RECAPTCHA_SITEID))
+		template = environ.get_template('schematics.html')
+	print(template.render(uiTheme=uiTheme, loggedin=logged_state, currentUser=currentUser, loginResult=loginResult, linkappend=linkappend, url=url, pictureName=pictureName, imgNum=ghShared.imgNum, galaxyList=ghLists.getGalaxyList(), professionList=ghLists.getProfessionList(galaxy), schematicTabList=ghLists.getSchematicTabList(), objectTypeList=ghLists.getObjectTypeList(), noenergyTypeList=ghLists.getOptionList('SELECT resourceType, resourceTypeName FROM tResourceType WHERE resourceCategory != "energy" ORDER BY resourceTypeName;'), resourceGroupList=ghLists.getResourceGroupList(), resourceGroupListShort=groupListShort, statList=ghLists.getStatList(), schematicID=schematicID, schematic=s, favHTML=favHTML, canEdit=canEdit, profession=profession, canAdd=canAdd, enableCAPTCHA=env.RECAPTCHA_ENABLED, siteidCAPTCHA=env.RECAPTCHA_SITEID))
 
 
 if __name__ == "__main__":

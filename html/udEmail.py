@@ -32,9 +32,7 @@ import smtplib
 from email.message import EmailMessage
 from smtplib import SMTPRecipientsRefused
 sys.path.append("../")
-import dbInfo
-import mailInfo
-
+import env
 
 def sendVerificationMail(user, address, code):
     # send message
@@ -45,8 +43,8 @@ def sendVerificationMail(user, address, code):
     link = "http://galaxyharvester.net/verifyUser.py?vc={0}&vt=mail".format(code)
     message.set_content("Hello " + user + ",\n\nYou have updated your e-mail address on galaxyharvester.net to this email address.  You must verify this email with us by clicking the link below before the change can be completed.  If the link does not work, please copy the link and paste it into your browser address box.\n\n" + link + "\n\nThanks,\n-Galaxy Harvester Administrator\n")
     message.add_alternative("<div><img src='http://galaxyharvester.net/images/ghLogoLarge.png'/></div><p>Hello " + user + ",</p><br/><p>You have updated your e-mail address on galaxyharvester.net to this email address.  You must verify this email with us by clicking the link below before the change can be completed.  If the link does not work, please copy the link and paste it into your browser address box.</p><p><a style='text-decoration:none;' href='" + link + "'><div style='width:170px;font-size:18px;font-weight:600;color:#feffa1;background-color:#003344;padding:8px;margin:4px;border:1px solid black;'>Click Here To Verify</div></a><br/>or copy and paste link: " + link + "</p><br/><p>Thanks,</p><p>-Galaxy Harvester Administrator</p>", subtype='html')
-    mailer = smtplib.SMTP(mailInfo.MAIL_HOST)
-    mailer.login(mailInfo.REGMAIL_USER, mailInfo.MAIL_PASS)
+    mailer = smtplib.SMTP(env.MAIL_HOST)
+    mailer.login(env.REGMAIL_USER, env.MAIL_PASS)
     try:
         mailer.send_message(message)
         mailer.quit()

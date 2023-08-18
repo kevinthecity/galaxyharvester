@@ -27,6 +27,7 @@ from http import cookies
 import dbSession
 import pymysql
 import ghShared
+import env
 import ghLists
 import dbShared
 import time
@@ -232,15 +233,15 @@ def main():
 	pictureName = dbShared.getUserAttr(currentUser, 'pictureName')
 
 	print('Content-type: text/html\n')
-	env = Environment(loader=FileSystemLoader('templates'))
-	env.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
-	env.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(os.environ['HTTP_USER_AGENT'])
-	template = env.get_template(template)
+	environ = Environment(loader=FileSystemLoader('templates'))
+	environ.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
+	environ.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(os.environ['HTTP_USER_AGENT'])
+	template = environ.get_template(template)
 	if userPage == 'inventory':
-		print(template.render(uiTheme=uiTheme, loggedin=logged_state, currentUser=currentUser, loginResult=loginResult, linkappend=linkappend, url=url, pictureName=pictureName, imgNum=ghShared.imgNum, galaxyList=ghLists.getGalaxyList(), professionList=ghLists.getProfessionList(galaxy), resourceGroupList=ghLists.getResourceGroupList(), resourceTypeList=ghLists.getResourceTypeList(galaxy), uid=uid, editable=(uid == currentUser and logged_state==1), enableCAPTCHA=ghShared.RECAPTCHA_ENABLED, siteidCAPTCHA=ghShared.RECAPTCHA_SITEID))
+		print(template.render(uiTheme=uiTheme, loggedin=logged_state, currentUser=currentUser, loginResult=loginResult, linkappend=linkappend, url=url, pictureName=pictureName, imgNum=ghShared.imgNum, galaxyList=ghLists.getGalaxyList(), professionList=ghLists.getProfessionList(galaxy), resourceGroupList=ghLists.getResourceGroupList(), resourceTypeList=ghLists.getResourceTypeList(galaxy), uid=uid, editable=(uid == currentUser and logged_state==1), enableCAPTCHA=env.RECAPTCHA_ENABLED, siteidCAPTCHA=env.RECAPTCHA_SITEID))
 	else:
 		print(template.render(uiTheme=uiTheme, loggedin=logged_state, currentUser=currentUser, loginResult=loginResult, linkappend=linkappend, url=url, pictureName=pictureName, imgNum=ghShared.imgNum, galaxyList=ghLists.getGalaxyList(), themeList=ghLists.getThemeList(), uid=uid, convertGI=convertGI, sid=sid, avatarResult=avatarResult, email=email, donorBadge=donorBadge, joinedStr=joinedStr, userPictureName=userPictureName, tmpStat=tmpStat, userTitle=userTitle, friendCountStr=friendCountStr,
-		userAbilities=abilities, resScore=resScore, mapScore=mapScore, reputation=reputation, resColor=resColor, mapColor=mapColor, repColor=repColor, siteAlertCheckStr=siteAlertCheckStr, emailAlertCheckStr=emailAlertCheckStr, mobileAlertCheckStr=mobileAlertCheckStr, sharedInventory=sharedInventory, sharedRecipes=sharedRecipes, inGameInfo=ghShared.convertText(inGameInfo, 'html'), enableCAPTCHA=ghShared.RECAPTCHA_ENABLED, siteidCAPTCHA=ghShared.RECAPTCHA_SITEID))
+		userAbilities=abilities, resScore=resScore, mapScore=mapScore, reputation=reputation, resColor=resColor, mapColor=mapColor, repColor=repColor, siteAlertCheckStr=siteAlertCheckStr, emailAlertCheckStr=emailAlertCheckStr, mobileAlertCheckStr=mobileAlertCheckStr, sharedInventory=sharedInventory, sharedRecipes=sharedRecipes, inGameInfo=ghShared.convertText(inGameInfo, 'html'), enableCAPTCHA=env.RECAPTCHA_ENABLED, siteidCAPTCHA=env.RECAPTCHA_SITEID))
 
 if __name__ == "__main__":
 	main()

@@ -21,123 +21,212 @@
 """
 
 import os
-import sys
 import cgi
 from http import cookies
 import dbSession
-import pymysql
+import env
 import ghShared
 import ghLists
 import dbShared
+from collections import namedtuple
 from jinja2 import Environment, FileSystemLoader
+import logger
 
-# Get current url
-try:
-	url = os.environ['SCRIPT_NAME']
-except KeyError:
-	url = ''
+# Define namedtuples to group related parameters
+UserDetails = namedtuple('UserDetails', ['uiTheme', 'currentUser', 'loginResult', 'pictureName'])
+GalaxyDetails = namedtuple('GalaxyDetails', ['galaxy', 'galaxyList', 'galaxyAdmin'])
+RenderSettings = namedtuple('RenderSettings', ['loggedin', 'linkappend', 'url', 'imgNum', 'enableCAPTCHA', 'siteidCAPTCHA'])
+ResourceDetails = namedtuple('ResourceDetails', ['resourceGroupListShort', 'professionList', 'planetList', 'resourceGroupList', 'resourceTypeList'])
+Metrics = namedtuple('Metrics', ['totalAmt', 'percentOfGoal'])
 
-form = cgi.FieldStorage()
-uiTheme = ''
-# Get Cookies
-useCookies = 1
-C = cookies.SimpleCookie()
-try:
-	C.load(os.environ['HTTP_COOKIE'])
-except KeyError:
-	useCookies = 0
-
-if useCookies:
+def get_value_from_cookie(cookie, key, default=None):
 	try:
-		currentUser = C['userID'].value
+		return cookie[key].value
 	except KeyError:
-		currentUser = ''
-	try:
-		loginResult = C['loginAttempt'].value
-	except KeyError:
-		loginResult = 'success'
-	try:
-		sid = C['gh_sid'].value
-	except KeyError:
-		sid = form.getfirst('gh_sid', '')
-	try:
-		uiTheme = C['uiTheme'].value
-	except KeyError:
-		uiTheme = ''
-	try:
-		galaxy = C['galaxy'].value
-	except KeyError:
-		galaxy = form.getfirst('galaxy', ghShared.DEFAULT_GALAXY)
-else:
-	currentUser = ''
-	loginResult = form.getfirst('loginAttempt', '')
-	sid = form.getfirst('gh_sid', '')
-	galaxy = form.getfirst('galaxy', ghShared.DEFAULT_GALAXY)
+		return default
 
-# escape input to prevent sql injection
-sid = dbShared.dbInsertSafe(sid)
+def get_value_from_form_or_cookie(form, cookie, key, default=None):
+	return form.getfirst(key, get_value_from_cookie(cookie, key, default))
 
-# Get a session
-logged_state = 0
-linkappend = ''
-disableStr = ''
-if loginResult == None:
-	loginResult = 'success'
+def setup_environment():
+	url = os.environ.get('SCRIPT_NAME', '')
+	form = cgi.FieldStorage()
+	use_cookies = bool(os.environ.get('HTTP_COOKIE'))
 
-sess = dbSession.getSession(sid)
-if (sess != ''):
-	logged_state = 1
-	currentUser = sess
-	if (uiTheme == ''):
-		uiTheme = dbShared.getUserAttr(currentUser, 'themeName')
-	if (useCookies == 0):
-		linkappend = 'gh_sid=' + sid
-else:
-	disableStr = ' disabled="disabled"'
-	if (uiTheme == ''):
-		uiTheme = 'crafter'
+	c = cookies.SimpleCookie()
+	if use_cookies:
+		c.load(os.environ['HTTP_COOKIE'])
+	
+	return url, form, use_cookies, c
 
-# Allow for specifying galaxy in URL
-path = []
-if 'PATH_INFO' in os.environ:
-	path = os.environ['PATH_INFO'].split('/')[1:]
-	path = [p for p in path if p != '']
+def get_donation_total():
+	totalAmt = 0.00
+	conn = dbShared.ghConn()
+	cursor = conn.cursor()
+	if (cursor):
+		sqlStr = 'SELECT Sum(paymentGross) AS totalAmt FROM tPayments WHERE YEAR(completedDate)=YEAR(NOW()) AND MONTH(completedDate)=MONTH(NOW());'
+		cursor.execute(sqlStr)
+		row = cursor.fetchone()
+		if row[0] != None:
+			totalAmt = float(row[0])
+	cursor.close()
+	conn.close()
 
-if len(path) > 0 and path[0].isdigit():
-	galaxy = dbShared.dbInsertSafe(path[0])
-	C['galaxy'] = path[0]
-	C['galaxy']['path'] = '/'
-	print(C)
+	percentOfGoal = totalAmt/28
+	totalAmt = str(int(totalAmt))
 
-totalAmt = 0.00
-conn = dbShared.ghConn()
-cursor = conn.cursor()
-if (cursor):
-	sqlStr = 'SELECT Sum(paymentGross) AS totalAmt FROM tPayments WHERE YEAR(completedDate)=YEAR(NOW()) AND MONTH(completedDate)=MONTH(NOW());'
-	cursor.execute(sqlStr)
-	row = cursor.fetchone()
-	if row[0] != None:
-		totalAmt = float(row[0])
-cursor.close()
+	return totalAmt, percentOfGoal
 
-adminList = dbShared.getGalaxyAdminList(conn, currentUser).split('/option')[0]
-if len(adminList) > 0:
-	galaxyAdmin = int(adminList[15:adminList.rfind('"')])
-else:
-	galaxyAdmin = 0
-conn.close()
+def get_galaxy_admin(currentUser):
+	adminList = dbShared.getGalaxyAdminList(currentUser).split('/option')[0]
+	if len(adminList) > 0:
+		galaxyAdmin = int(adminList[15:adminList.rfind('"')])
+	else:
+		galaxyAdmin = 0
+	return galaxyAdmin
 
-percentOfGoal = totalAmt/28
-totalAmt = str(int(totalAmt))
-pictureName = dbShared.getUserAttr(currentUser, 'pictureName')
-print('Content-type: text/html\n')
-env = Environment(loader=FileSystemLoader('templates'))
-env.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
+def get_galaxy_from_url(cookies):
+	# Allow for specifying galaxy in URL
+	galaxy = None
+	path = []
+	if 'PATH_INFO' in os.environ:
+		path = os.environ['PATH_INFO'].split('/')[1:]
+		path = [p for p in path if p != '']
 
-userAgent = 'unknown'
-if 'HTTP_USER_AGENT' in os.environ:
-	userAgent = os.environ['HTTP_USER_AGENT']
-env.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(os.environ['HTTP_USER_AGENT'])
+	if len(path) > 0 and path[0].isdigit():
+		galaxy = dbShared.dbInsertSafe(path[0])
+		cookies['galaxy'] = path[0]
+		cookies['galaxy']['path'] = '/'
+		print(cookies)
+	
+	return galaxy
 
-template = env.get_template('home.html')
-print(template.render(uiTheme=uiTheme, galaxy=galaxy, loggedin=logged_state, currentUser=currentUser, loginResult=loginResult, linkappend=linkappend, url=url, pictureName=pictureName, totalAmt=totalAmt, percentOfGoal=percentOfGoal, imgNum=ghShared.imgNum, resourceGroupListShort=ghLists.getResourceGroupListShort(), professionList=ghLists.getProfessionList(galaxy), planetList=ghLists.getPlanetList(galaxy), resourceGroupList=ghLists.getResourceGroupList(), resourceTypeList=ghLists.getResourceTypeList(galaxy), galaxyList=ghLists.getGalaxyList(), galaxyAdmin=galaxyAdmin, enableCAPTCHA=ghShared.RECAPTCHA_ENABLED, siteidCAPTCHA=ghShared.RECAPTCHA_SITEID))
+def render(
+		user: UserDetails, 
+	   	galaxy: GalaxyDetails, 
+		settings: RenderSettings, 
+		resources: ResourceDetails, 
+		metrics: Metrics
+	):
+	print('Content-type: text/html\n')
+	environ = Environment(loader=FileSystemLoader('templates'))
+	environ.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
+
+	userAgent = os.environ.get('HTTP_USER_AGENT', 'unknown')
+	environ.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(userAgent)
+
+	template = environ.get_template('home.html')
+
+	print(template.render(
+		**user._asdict(), 
+		**galaxy._asdict(), 
+		**settings._asdict(),
+		**resources._asdict(),
+		**metrics._asdict()
+	))
+
+def render_login(userId, loginResult):
+	print('Content-type: text/html\n')
+	environ = Environment(loader=FileSystemLoader('templates'))
+	environ.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
+
+	userAgent = os.environ.get('HTTP_USER_AGENT', 'unknown')
+	environ.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(userAgent)
+		
+	template = environ.get_template('login.html')
+
+	print(template.render(
+		currentUser=userId,
+		loginResult=loginResult,
+		enableCAPTCHA=env.RECAPTCHA_ENABLED, 
+		siteidCAPTCHA=env.RECAPTCHA_SITEID,
+		url = os.environ.get('SCRIPT_NAME', '')
+	))
+
+def main():
+
+	# logger.info(env.DB_NAME)
+	# logger.info(env.DB_PASS)
+	
+	SUCCESS_LOGIN = 'success'
+
+	url, form, use_cookies, c = setup_environment()
+
+	currentUser = get_value_from_cookie(c, 'userID')
+	loginResult = get_value_from_cookie(c, 'loginAttempt', SUCCESS_LOGIN)
+	sid = get_value_from_form_or_cookie(form, c, 'gh_sid')
+	uiTheme = get_value_from_cookie(c, 'uiTheme', ghShared.DEFAULT_THEME)
+	galaxy = get_value_from_form_or_cookie(form, c, 'galaxy', ghShared.DEFAULT_GALAXY)
+
+	# Get a session
+	logged_state = 0
+	linkappend = ''
+	
+	sess = dbSession.getSession(sid)
+	# Check session validity
+	if sess:
+		logged_state = 1
+		currentUser = sess
+		
+		# Get user-specific theme if not provided
+		uiTheme = uiTheme or dbShared.getUserAttr(currentUser, 'themeName')
+		
+		# Set link append if cookies are not used
+		if not use_cookies:
+			linkappend = 'gh_sid=' + sid
+	else:
+		if env.REQUIRE_LOGIN:
+			# If not logged in, render the login only page
+			render_login(currentUser, loginResult)
+			return
+	
+	galaxy = get_galaxy_from_url(c) or galaxy
+	totalAmt, percentOfGoal = get_donation_total()
+	galaxyAdmin = get_galaxy_admin(currentUser)
+	pictureName = dbShared.getUserAttr(currentUser, 'pictureName')
+
+	user_details = UserDetails(
+		uiTheme=uiTheme, 
+		currentUser=currentUser, 
+		loginResult=loginResult, 
+		pictureName=pictureName
+	)
+
+	galaxy_details = GalaxyDetails(
+		galaxy=galaxy, 
+		galaxyList=ghLists.getGalaxyList(), 
+		galaxyAdmin=galaxyAdmin
+	)
+
+	render_settings = RenderSettings(
+		loggedin=logged_state, 
+		linkappend=linkappend, 
+		url=url, 
+		imgNum=ghShared.imgNum, 
+		enableCAPTCHA=env.RECAPTCHA_ENABLED, 
+		siteidCAPTCHA=env.RECAPTCHA_SITEID
+	)
+
+	resource_details = ResourceDetails(
+		resourceGroupListShort=ghLists.getResourceGroupListShort(), 
+		professionList=ghLists.getProfessionList(galaxy), 
+		planetList=ghLists.getPlanetList(galaxy), 
+		resourceGroupList=ghLists.getResourceGroupList(), 
+		resourceTypeList=ghLists.getResourceTypeList(galaxy)
+	)
+
+	metrics = Metrics(
+		totalAmt=totalAmt, 
+		percentOfGoal=percentOfGoal
+	)
+
+	render(
+		user=user_details, 
+		galaxy=galaxy_details, 
+		settings=render_settings, 
+		resources=resource_details, 
+		metrics=metrics
+	)
+
+if __name__ == "__main__":
+	main()

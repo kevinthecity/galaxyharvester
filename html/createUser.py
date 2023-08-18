@@ -36,15 +36,13 @@ from email.message import EmailMessage
 import dbSession
 import dbShared
 import ghShared
+import env
 sys.path.append("../")
-import dbInfo
-import keyInfo
-import mailInfo
-
+import env
 
 def getCAPTCHA(token):
     # prepare data for request
-    values = {"secret": keyInfo.RECAPTCHA_KEY, "response": token}
+    values = {"secret": env.RECAPTCHA_KEY, "response": token}
     # reads the response back from Google
     try:
         response = requests.post(ghShared.RECAPTCHA_URL, values)
@@ -67,14 +65,14 @@ def getCAPTCHA(token):
 def sendVerificationMail(user, address, code):
     # send message
     message = EmailMessage()
-    message['From'] = "\"Galaxy Harvester Activation\" <{0}>".format(mailInfo.REGMAIL_USER)
+    message['From'] = "\"Galaxy Harvester Activation\" <{0}>".format(env.REGMAIL_USER)
     message['To'] = address
     message['Subject'] = "Galaxy Harvester Account Verification"
-    link = "{0}/verifyUser.py?vc={1}".format(ghShared.BASE_WEB_DOMAIN,code)
+    link = "{0}/verifyUser.py?vc={1}".format(env.BASE_WEB_DOMAIN,code)
     message.set_content("Hello " + user + ",\n\nYou have created a new account on galaxyharvester.net using this email address.  Before you can use your new account, you must verify this email with us by clicking the link below.  If the link does not work, please copy the link and paste it into your browser address box.\n\n" + link + "\n\nThanks,\n-Galaxy Harvester Administrator\n")
-    message.add_alternative("<div><img src='"+ ghShared.BASE_WEB_DOMAIN +"/images/ghLogoLarge.png'/></div><p>Hello " + user + ",</p><br/><p>You have created a new account on galaxyharvester.net using this email address.  Before you can use your new account, you must verify this email with us by clicking the link below.  If the link does not work, please copy the link and paste it into your browser address box.</p><p><a style='text-decoration:none;' href='" + link + "'><div style='width:170px;font-size:18px;font-weight:600;color:#feffa1;background-color:#003344;padding:8px;margin:4px;border:1px solid black;'>Click Here To Verify</div></a><br/>or copy and paste link: " + link + "</p><br/><p>Thanks,</p><p>-Galaxy Harvester Administrator</p>", subtype='html')
-    mailer = smtplib.SMTP(mailInfo.MAIL_HOST)
-    mailer.login(mailInfo.REGMAIL_USER, mailInfo.MAIL_PASS)
+    message.add_alternative("<div><img src='"+ env.BASE_WEB_DOMAIN +"/images/ghLogoLarge.png'/></div><p>Hello " + user + ",</p><br/><p>You have created a new account on galaxyharvester.net using this email address.  Before you can use your new account, you must verify this email with us by clicking the link below.  If the link does not work, please copy the link and paste it into your browser address box.</p><p><a style='text-decoration:none;' href='" + link + "'><div style='width:170px;font-size:18px;font-weight:600;color:#feffa1;background-color:#003344;padding:8px;margin:4px;border:1px solid black;'>Click Here To Verify</div></a><br/>or copy and paste link: " + link + "</p><br/><p>Thanks,</p><p>-Galaxy Harvester Administrator</p>", subtype='html')
+    mailer = smtplib.SMTP(env.MAIL_HOST, env.MAIL_PORT)
+    mailer.login(env.REGMAIL_USER, env.MAIL_PASS)
     mailer.send_message(message)
     mailer.quit()
     return 'email sent'
@@ -117,7 +115,7 @@ else:
         errorstr = errorstr + "Error: disposable emails not allowed.\n"
 
 # CAPTCHAv3 validation https://developers.google.com/recaptcha/docs/v3
-if ghShared.RECAPTCHA_ENABLED:
+if env.RECAPTCHA_ENABLED:
     if tokenCAPTCHA:
         scoreCAPTCHA = getCAPTCHA(tokenCAPTCHA)
         if scoreCAPTCHA == -1:
@@ -137,7 +135,7 @@ else:
     # For passing in to message for on success
     errorstr = email
     # Prepare encrypted password and verification code
-    passString = dbInfo.DB_KEY3 + userpass
+    passString = env.DB_KEY3 + userpass
     crypt_pass = hashlib.sha1(passString.encode()).hexdigest()
     verify_code = uuid.uuid4().hex
 
@@ -163,7 +161,8 @@ else:
             else:
                 updatestr = "INSERT INTO tUsers (userID, emailAddress, userPassword, created, verificationCode) VALUES ('" + uname + "','" + email + "','" + crypt_pass + "', Now(), '" + verify_code + "');"
             cursor.execute(updatestr)
-            sendVerificationMail(uname, email, verify_code)
+            if env.REQUIRE_EMAIL_VERIFY:
+                sendVerificationMail(uname, email, verify_code)
         cursor.close()
 
     ecursor.close()

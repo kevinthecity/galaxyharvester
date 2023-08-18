@@ -20,8 +20,6 @@
 
 """
 
-
-import pymysql
 import time
 import dbShared
 
@@ -37,25 +35,26 @@ def verifySessionDB():
 	cursor.close()
 	conn.close()
 
-# look up a session id and see if it is valid
 def getSession(sid):
-	conn = dbShared.ghConn()
-	cursor = conn.cursor()
-	cursor.execute("SELECT userID, expires FROM tSessions WHERE sid='" + sid + "'")
-	row = cursor.fetchone()
-	if row == None:
-		# no record
-		result = ""
-	else:
-		if time.time() > row[1]:
-			# session is expired, delete it
-			result = ""
-			tempSQL = "DELETE FROM tSessions WHERE sid='" + sid + "'"
-			cursor.execute(tempSQL)
-		else:
-			# good session, return userid
-			result = row[0]
+    conn = dbShared.ghConn()
+    cursor = conn.cursor()
 
-	cursor.close()
-	conn.close()
-	return result
+    # Using parameterized query for sid lookup
+    cursor.execute("SELECT userID, expires FROM tSessions WHERE sid = %s", (sid,))
+    row = cursor.fetchone()
+
+    if row is None:
+        result = ""
+    else:
+        if time.time() > row[1]:
+            result = ""
+            # Using parameterized query for session deletion
+            cursor.execute("DELETE FROM tSessions WHERE sid = %s", (sid,))
+        else:
+            # Valid session
+            result = row[0]
+
+    cursor.close()
+    conn.close()
+
+    return result

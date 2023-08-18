@@ -28,6 +28,7 @@ import dbSession
 import dbShared
 import pymysql
 import ghShared
+import env
 import ghLists
 from jinja2 import Environment, FileSystemLoader
 
@@ -98,8 +99,8 @@ resCategoryIDs = ['creature_food','creature_structural','flora_food','flora_stru
 
 pictureName = dbShared.getUserAttr(currentUser, 'pictureName')
 print('Content-type: text/html\n')
-env = Environment(loader=FileSystemLoader('templates'))
-env.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
-env.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(os.environ['HTTP_USER_AGENT'])
-template = env.get_template('resourcelist.html')
-print(template.render(uiTheme=uiTheme, loggedin=logged_state, currentUser=currentUser, loginResult=loginResult, linkappend=linkappend, url=url, pictureName=pictureName, imgNum=ghShared.imgNum, galaxyList=ghLists.getGalaxyList(), resourceTypeList=ghLists.getResourceTypeList(galaxy), resourceGroupList=ghLists.getResourceGroupList(), planetList=ghLists.getPlanetList(galaxy), resCategories=resCategories, resCategoryIDs=resCategoryIDs, enableCAPTCHA=ghShared.RECAPTCHA_ENABLED, siteidCAPTCHA=ghShared.RECAPTCHA_SITEID))
+environ = Environment(loader=FileSystemLoader('templates'))
+environ.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
+environ.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(os.environ['HTTP_USER_AGENT'])
+template = environ.get_template('resourcelist.html')
+print(template.render(uiTheme=uiTheme, loggedin=logged_state, currentUser=currentUser, loginResult=loginResult, linkappend=linkappend, url=url, pictureName=pictureName, imgNum=ghShared.imgNum, galaxyList=ghLists.getGalaxyList(), resourceTypeList=ghLists.getResourceTypeList(galaxy), resourceGroupList=ghLists.getResourceGroupList(), planetList=ghLists.getPlanetList(galaxy), resCategories=resCategories, resCategoryIDs=resCategoryIDs, enableCAPTCHA=env.RECAPTCHA_ENABLED, siteidCAPTCHA=env.RECAPTCHA_SITEID))

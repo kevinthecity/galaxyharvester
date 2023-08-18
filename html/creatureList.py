@@ -28,6 +28,7 @@ import dbSession
 import dbShared
 import pymysql
 import ghShared
+import env
 import ghLists
 from jinja2 import Environment, FileSystemLoader
 
@@ -178,12 +179,12 @@ breadcrumbHTML += typeTitle
 # Set user picture
 pictureName = dbShared.getUserAttr(currentUser, 'pictureName')
 
-# Set environment
-env = Environment(loader=FileSystemLoader('templates'))
-env.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
-env.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(os.environ['HTTP_USER_AGENT'])
+# Set environ
+environ = Environment(loader=FileSystemLoader('templates'))
+environ.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
+environ.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(os.environ['HTTP_USER_AGENT'])
 
-template = env.get_template('creaturelist.html')
+template = environ.get_template('creaturelist.html')
 
 print('Content-type: text/html\n')
-print(template.render(validResource=validResource, typeID=typeID, containerType=containerType, typeTitle=typeTitle, showType=showType, breadcrumbHTML=breadcrumbHTML, uiTheme=uiTheme, galaxy=galaxy, loggedin=logged_state, currentUser=currentUser, loginResult=loginResult, linkappend=linkappend, url=url, pictureName=pictureName, imgNum=ghShared.imgNum, galaxyList=ghLists.getGalaxyList(), enableCAPTCHA=ghShared.RECAPTCHA_ENABLED, siteidCAPTCHA=ghShared.RECAPTCHA_SITEID))
+print(template.render(validResource=validResource, typeID=typeID, containerType=containerType, typeTitle=typeTitle, showType=showType, breadcrumbHTML=breadcrumbHTML, uiTheme=uiTheme, galaxy=galaxy, loggedin=logged_state, currentUser=currentUser, loginResult=loginResult, linkappend=linkappend, url=url, pictureName=pictureName, imgNum=ghShared.imgNum, galaxyList=ghLists.getGalaxyList(), enableCAPTCHA=env.RECAPTCHA_ENABLED, siteidCAPTCHA=env.RECAPTCHA_SITEID))

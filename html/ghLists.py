@@ -85,42 +85,63 @@ def getGalaxyStatusList():
 	result += '    <option value="3">Removed</option>'
 	return result
 
-def getOptionList(sqlStr):
-	result = ""
-	thisGroup = ""
-	conn = dbShared.ghConn()
-	cursor = conn.cursor()
-	if (cursor):
-		cursor.execute(sqlStr)
-		row = cursor.fetchone()
-		while (row != None):
-			if len(row)>2:
-				if thisGroup == '':
-					result = result + '  <optgroup label="' + str(row[2]) + '">'
-					thisGroup = str(row[2])
-				elif thisGroup != str(row[2]):
-					result = result + '  </optgroup>'
-					result = result + '  <optgroup label="' + str(row[2]) + '">'
-					thisGroup = str(row[2])
+def getOptionList(sqlStr, params = None):
+    result = []
+    current_group = None
 
-				result = result + '  <option value="' + str(row[0]) + '" group="' + str(row[2]) + '">' + row[1] + '</option>'
-			elif len(row)>1:
-				result = result + '  <option value="' + str(row[0]) + '">' + row[1] + '</option>'
-			else:
-				result = result + '  <option>' + row[0] + '</option>'
-			row = cursor.fetchone()
-		cursor.close()
-	conn.close()
-	if thisGroup != "":
-		result = result + '  </optgroup>'
+    # Connect to the database and execute the SQL query
+    with dbShared.ghConn() as conn:
+        cursor = conn.cursor()
+        cursor.execute(sqlStr, params)
+        
+        for row in cursor:
+            # Handle groupings with more than 2 columns
+            if len(row) > 2:
+                group_name = str(row[2])
 
-	return result
+                # If group changes, close previous optgroup and start a new one
+                if current_group != group_name:
+                    if current_group:
+                        result.append('</optgroup>')
+                    result.append(f'  <optgroup label="{group_name}">')
+                    current_group = group_name
 
-def getResourceTypeList(galaxy='-1'):
-	if galaxy != '-1':
-		listStr = getOptionList('SELECT resourceType, resourceTypeName FROM tResourceType WHERE (specificPlanet = 0 OR specificPlanet IN (SELECT DISTINCT tPlanet.planetID FROM tPlanet, tGalaxyPlanet WHERE (tPlanet.planetID < 11) OR (tPlanet.planetID = tGalaxyPlanet.planetID AND tGalaxyPlanet.galaxyID = {0})))'.format(galaxy) + ' ORDER BY resourceTypeName;')
+                # Add the option within the group
+                result.append(f'  <option value="{row[0]}" group="{group_name}">{row[1]}</option>')
+
+            # Handle regular options with 2 columns
+            elif len(row) > 1:
+                result.append(f'  <option value="{row[0]}">{row[1]}</option>')
+
+            # Handle options with a single column
+            else:
+                result.append(f'  <option>{row[0]}</option>')
+
+        # Close the last group if it exists
+        if current_group:
+            result.append('  </optgroup>')
+
+    return "\n".join(result)
+
+def getResourceTypeList(galaxy):
+	if not galaxy or galaxy == -1:
+		query = 'SELECT resourceType, resourceTypeName FROM tResourceType ORDER BY resourceTypeName;'
+		params = ()
 	else:
-		listStr = getOptionList('SELECT resourceType, resourceTypeName FROM tResourceType ORDER BY resourceTypeName;')
+		query = '''
+				SELECT resourceType, resourceTypeName 
+				FROM tResourceType 
+				WHERE (specificPlanet = 0 OR specificPlanet IN (
+					SELECT DISTINCT tPlanet.planetID 
+					FROM tPlanet, tGalaxyPlanet 
+					WHERE (tPlanet.planetID < 11) OR 
+						(tPlanet.planetID = tGalaxyPlanet.planetID AND tGalaxyPlanet.galaxyID = %s)
+				)) 
+				ORDER BY resourceTypeName;
+				'''
+		params = (galaxy,)
+	
+	listStr = getOptionList(query, params)
 	return listStr
 
 def getResourceGroupList():
@@ -136,18 +157,28 @@ def getGalaxyList():
 	return listStr
 
 def getPlanetList(galaxy):
-	if galaxy == -1 or galaxy == '':
-		listStr = getOptionList('SELECT planetID, planetName FROM tPlanet ORDER BY planetName')
-	else:
-		listStr = getOptionList('SELECT DISTINCT tPlanet.planetID, planetName FROM tPlanet, tGalaxyPlanet WHERE (tPlanet.planetID < 11) OR (tPlanet.planetID = tGalaxyPlanet.planetID AND tGalaxyPlanet.galaxyID = {0}) ORDER BY planetName;'.format(galaxy))
-	return listStr
+    if not galaxy or galaxy == -1:
+        listStr = getOptionList('SELECT planetID, planetName FROM tPlanet ORDER BY planetName')
+    else:
+        query = ('SELECT DISTINCT tPlanet.planetID, planetName '
+                 'FROM tPlanet, tGalaxyPlanet '
+                 'WHERE (tPlanet.planetID < 11) OR '
+                 '(tPlanet.planetID = tGalaxyPlanet.planetID AND tGalaxyPlanet.galaxyID = %s) '
+                 'ORDER BY planetName')
+        params = (galaxy,)
+        listStr = getOptionList(query, params)
+    return listStr
 
 def getProfessionList(galaxy):
-	if galaxy == -1 or galaxy == '':
-		listStr = getOptionList('SELECT profID, profName FROM tProfession WHERE galaxy=0 ORDER BY profName;')
-	else:
-		listStr = getOptionList('SELECT profID, profName FROM tProfession WHERE galaxy IN ({1},{0}) ORDER BY profName'.format(str(galaxy), dbShared.getBaseProfs(galaxy)))
-	return listStr
+    if not galaxy or galaxy == -1:
+        query = 'SELECT profID, profName FROM tProfession WHERE galaxy=0 ORDER BY profName;'
+        params = ()
+    else:
+        base_profs = dbShared.getBaseProfs(galaxy)
+        query = ('SELECT profID, profName FROM tProfession WHERE galaxy IN (%s, %s) ORDER BY profName;')
+        params = (base_profs, galaxy)
+
+    return getOptionList(query, params)
 
 def getObjectTypeList():
 	listStr = getOptionList('SELECT objectType, typeName FROM tObjectType ORDER BY typeName;')

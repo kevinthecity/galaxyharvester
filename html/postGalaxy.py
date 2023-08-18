@@ -34,7 +34,7 @@ from xml.dom import minidom
 import ghNames
 import ghShared
 sys.path.append("../")
-import mailInfo
+import env
 
 #
 # Get current url
@@ -109,8 +109,8 @@ def sendGalaxyNotifyMail(galaxyID, galaxyName, user):
 	link = "http://galaxyharvester.net/galaxy.py/{0}".format(galaxyID)
 	message.set_content(user + " has submitted a new galaxy for review.\n\n" + link)
 	message.add_alternative("<div><img src='http://galaxyharvester.net/images/ghLogoLarge.png'/></div><p>" + user + " has submitted a new galaxy for review.</p><p><a style='text-decoration:none;' href='" + link + "'><div style='width:170px;font-size:18px;font-weight:600;color:#feffa1;background-color:#003344;padding:8px;margin:4px;border:1px solid black;'>Click Here To Review</div></a><br/>or copy and paste link: " + link + "</p>", subtype='html')
-	mailer = smtplib.SMTP(mailInfo.MAIL_HOST)
-	mailer.login(mailInfo.MAIL_USER, mailInfo.MAIL_PASS)
+	mailer = smtplib.SMTP(env.MAIL_HOST)
+	mailer.login(env.MAIL_USER, env.MAIL_PASS)
 	mailer.send_message(message)
 	mailer.quit()
 	return 'email sent'

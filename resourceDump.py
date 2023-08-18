@@ -26,13 +26,13 @@ import pymysql
 from datetime import date, datetime
 import time
 from time import localtime, strptime, strftime
-import dbInfo
+import env
 
 def ghConn():
-	conn = pymysql.connect(host = dbInfo.DB_HOST,
-		db = dbInfo.DB_NAME,
-		user = dbInfo.DB_USER,
-		passwd = dbInfo.DB_PASS)
+	conn = pymysql.connect(host = env.DB_HOST,
+		db = env.DB_NAME,
+		user = env.DB_USER,
+		passwd = env.DB_PASS)
 	return conn
 
 def n2z(inVal):

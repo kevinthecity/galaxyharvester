@@ -30,8 +30,8 @@ The database folder contains scripts and seed data to initialize a ready to use 
 ### Site Configuration:
 The site configuration files should exist in the folder above the web site root folder along with the maintenance job scripts, update the following 3 files with appropriate passwords, etc.
 
-* Update dbInfo.py so host, user, and password reflect your mysql server info if not using default webuser
-* Update mailInfo.py so outgoing mail server and login info is set properly
+* Update env.py so host, user, and password reflect your mysql server info if not using default webuser
+* Update env.py so outgoing mail server and login info is set properly
 * Check kukkaisvoima_settings.py for Blog admin settings customization
 
 
@@ -63,3 +63,97 @@ Galaxy Harvester seed data includes creature and schematic data that is automati
 
 ### Presentation Templates
 In most cases, Galaxy Harvester uses the [Jinja2](http://jinja.pocoo.org/) template engine to render any html to the user.  The html folder contains various scripts, some of which are called by AJAX from an already rendered page, and some of which render one of the templates under html/templates.  The blocks.html template is not rendered directly but has various blocks like headers and footers that are imported by the other templates.
+
+## Local Development on M2 Mac
+
+### Commands
+brew services start mysql
+brew services restart mysql
+tail -f /opt/homebrew/var/log/httpd/error_log
+
+cd /opt/homebrew/var/www
+
+#### Install mysql via homebrew
+brew install mysql
+
+### optional? 
+mysql_secure_installation
+
+### Create user
+mysql -u root -p
+
+CREATE USER 'newuser'@'localhost' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON *.* TO 'newuser'@'localhost' WITH GRANT OPTION;
+
+### Allow local data writing to mysql
+Add `local_infile=1` to /opt/homebrew/etc/my.cnf
+
+```
+# Default Homebrew MySQL server config
+[mysqld]
+local_infile=1 <<<
+# Only allow connections from localhost
+bind-address = 127.0.0.1
+mysqlx-bind-address = 127.0.0.1
+```
+
+### Load the DB
+mysql -u root -p --local-infile < database/createSWGresourcedb.sql
+
+## Install Apache
+
+brew install httpd
+
+### Edit httpd.conf
+
+Consider making a copy of this for easy reverting
+/opt/homebrew/etc/httpd/httpd.conf
+
+Uncomment `LoadModule cgi_module lib/httpd/modules/mod_cgi.so`
+
+<IfModule mpm_prefork_module>
+	LoadModule cgi_module lib/httpd/modules/mod_cgi.so
+</IfModule>
+
+Add html to doc root and directory below it
+`DocumentRoot "/opt/homebrew/var/www"` -> `DocumentRoot "/opt/homebrew/var/www/html"`
+`<Directory "/opt/homebrew/var/www">` -> `<Directory "/opt/homebrew/var/www/html">`
+
+Change 
+<Directory "/opt/homebrew/var/www/cgi-bin">
+    AllowOverride None
+    Options None
+    Require all granted
+</Directory>
+
+to
+
+<Directory "/opt/homebrew/var/www/html">
+    AllowOverride None
+    Options ExecCGI
+    Require all granted
+</Directory>
+
+Find
+`AddHandler cgi-script .cgi`
+
+and change to
+
+`AddHandler cgi-script .cgi .py`
+
+## Clone repo
+
+- Navigate to /opt/homebrew/var/www
+- Clone this repo in the folder
+- Rename www to www.original
+- Rename newly cloned project to www
+
+## Maybe it all works now?
+
+## How to add logging
+
+import logging
+
+logging.basicConfig(filename='/opt/homebrew/var/log/myapp.log', level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
+
+e.g. logging.info(spawn.getJSON())

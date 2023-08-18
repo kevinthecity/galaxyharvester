@@ -132,6 +132,24 @@ def getSpawnsJSON(planetID, resources, message):
 	result = result + '  ] } }\n'
 	return result
 
+def replace_resist_strings(input_string):
+	replacements = {
+		"entangle_resistance": "ER",
+		"res_cold_resist": "CR",
+		"res_conductivity": "CD",
+		"res_decay_resist": "DR",
+		"res_heat_resist": "HR",
+		"res_malleability": "MA",
+		"res_potential_energy": "PE",
+		"res_quality": "OQ",
+		"res_shock_resistance": "SR",
+		"res_toughness": "UT"
+	}
+	
+	for key, value in replacements.items():
+		input_string = input_string.replace(key, value)
+	
+	return input_string
 
 def main():
 	# Get current url
@@ -263,7 +281,9 @@ def main():
 					thisSpawn.spawnName = thisName.lower()
 					thisSpawn.resourceType = thisType
 					thisSpawn.resourceTypeName = thisTypeName
+				
 				# Check for resource stats from enhanced droid reports
+				line = replace_resist_strings(line)
 				statMatch = re.match(statPattern, line)
 				if statMatch:
 					setattr(thisSpawn.stats, statMatch.group(1), int(statMatch.group(2)))

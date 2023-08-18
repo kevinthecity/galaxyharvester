@@ -34,9 +34,7 @@ import logging
 from random import *
 import string
 sys.path.append("../")
-import dbInfo
-import mailInfo
-
+import env
 
 form = cgi.FieldStorage()
 # Get Cookies
@@ -66,7 +64,7 @@ else:
         lastReset = row[1]
 
         newPass = randomString()
-        cryptString = dbInfo.DB_KEY3 + newPass
+        cryptString = env.DB_KEY3 + newPass
         crypt_pass = hashlib.sha1(cryptString.encode()).hexdigest()
 
         if (lastReset == None or ghShared.timeAgo(lastReset).find("minute") == -1):
@@ -75,8 +73,8 @@ else:
             message['To'] = email
             message['Subject'] = "Galaxy Harvester password reset"
             message.set_content("Hello " + uname + ",\n\nYour password for galaxyharvester.net has been reset to:\n\n" + newPass + "\n\n go to https://galaxyharvester.net to login.\n")
-            mailer = smtplib.SMTP(mailInfo.MAIL_HOST)
-            mailer.login('reset@galaxyharvester.net', mailInfo.MAIL_PASS)
+            mailer = smtplib.SMTP(env.MAIL_HOST)
+            mailer.login('reset@galaxyharvester.net', env.MAIL_PASS)
             mailer.send_message(message)
             mailer.quit()
             cursor.execute('UPDATE tUsers SET userPassword="' + crypt_pass + '", lastReset=NOW() WHERE userID="' + uname + '";')

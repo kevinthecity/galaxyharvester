@@ -26,15 +26,18 @@ import random
 import os
 import sys
 import math
+import env
 
 BASE_SCRIPT_URL = '/'
-BASE_WEB_DOMAIN = 'https://www.galaxyharvester.net' # Update to the root domain name for your site. Used for email verification link do not include trailing /
 DEFAULT_THEME = 'crafter'
 DEFAULT_GALAXY = '118'
+
 imgNum = random.randint(1,17)
 automatedUsers = ["etas", "c0pp3r", "RogueOne", "SRAlderaan", "EiFScript", "RelicsAdmin", "SRUpdater", "SwgAwakening", "Europa", "swginfinity", "Xela_TheCreation", "Reckoning", "TarkinSWG"]
-RECAPTCHA_ENABLED = True
-RECAPTCHA_SITEID = "6LdKFa0ZAAAAAFqbK_-0VBPWtPmFAxjZuunGLqHo"
+
+RECAPTCHA_ENABLED = os.getenv('RECAPTCHA_ENABLED', 'False').lower() in ('true', '1', 't', 'y', 'yes')
+RECAPTCHA_SITEID = os.getenv('RECAPTCHA_SITEID')
+
 RECAPTCHA_URL = "https://www.google.com/recaptcha/api/siteverify"
 
 # Minimum reputation needed to perform actions

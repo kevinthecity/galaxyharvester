@@ -29,7 +29,7 @@ import pymysql
 import dbSession
 import dbShared
 sys.path.append("../")
-import dbInfo
+import env
 
 
 # Get current url
@@ -88,7 +88,7 @@ if (logged_state == 0):
 if (errstr != ''):
     result = "Your Password could not be updated because of the following errors:\r\n" + errstr
 else:
-    cryptString = dbInfo.DB_KEY3 + userpass
+    cryptString = env.DB_KEY3 + userpass
     crypt_pass = hashlib.sha1(cryptString.encode()).hexdigest()
 
     conn = dbShared.ghConn()

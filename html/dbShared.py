@@ -20,26 +20,41 @@
 
 """
 
-
 import pymysql
 import sys
 import time
-from datetime import timedelta, datetime
+from datetime import datetime
 sys.path.append("../")
-import dbInfo
-import subprocess
+import env
 import ghObjects
 import ghNames
 import ghShared
 import difflib
+import logger
 
 def ghConn():
-	conn = pymysql.connect(host = dbInfo.DB_HOST,
-	db = dbInfo.DB_NAME,
-	user = dbInfo.DB_USER,
-	passwd = dbInfo.DB_PASS)
-	conn.autocommit(True)
-	return conn
+	try:
+		conn = pymysql.connect(
+			host=env.DB_HOST,
+			db=env.DB_NAME,
+			user=env.DB_USER,
+			passwd=env.DB_PASS
+		)
+		conn.autocommit(True)
+		return conn
+
+	except pymysql.MySQLError as e:
+		# This will catch any generic MySQL error
+		logger.error(f"Error connecting to MySQL Platform: {e}")
+		# Here you could also log the error, raise it, etc.
+		# Depending on your needs, you can also return None or handle it in some other way.
+		return None
+
+	except Exception as e:
+		# This will catch any non-MySQL related error
+		logger.error(f"Unexpected error: {e}")
+		# Again, handle the error as needed for your application.
+		return None
 
 def dbInsertSafe(insertStr):
 	newStr = ""
@@ -215,40 +230,48 @@ def logSchematicEvent(spawnID, galaxy, schematicID, expGroup, eventType, eventDe
 	conn.close()
 
 def getUserAttr(user, attr):
-	conn = ghConn()
-	cursor = conn.cursor()
-	cursor.execute('SELECT pictureName, emailAddress, themeName, created, inGameInfo, paidThrough, defaultAlertTypes, sharedInventory, sharedRecipes FROM tUsers WHERE userID="' + user + '"')
-	row = cursor.fetchone()
-	if (row != None):
-		if attr == 'themeName':
-			retAttr = row[2]
-		elif attr == 'emailAddress':
-			retAttr = row[1]
-		elif attr == 'pictureName':
-			if (row[0] == '' or row[0] == None):
-				retAttr = 'default'
-			else:
-				retAttr = row[0]
-		elif attr == 'created':
-			retAttr = row[3]
-		elif (attr == 'inGameInfo' and row[4] != None):
-			retAttr = row[4]
-		elif (attr == 'paidThrough' and row[5] != None):
-			retAttr = row[5]
-		elif (attr == 'defaultAlertTypes'):
-			retAttr = row[6]
-		elif (attr == 'sharedInventory'):
-			retAttr = row[7]
-		elif (attr == 'sharedRecipes'):
-			retAttr = row[8]
-		else:
-			retAttr = ''
-	else:
-		retAttr = ''
+	# Mapping of attribute names to their respective column in the database
+	ATTR_MAP = {
+		'themeName': 'themeName',
+		'emailAddress': 'emailAddress',
+		'pictureName': 'pictureName',
+		'created': 'created',
+		'inGameInfo': 'inGameInfo',
+		'paidThrough': 'paidThrough',
+		'defaultAlertTypes': 'defaultAlertTypes',
+		'sharedInventory': 'sharedInventory',
+		'sharedRecipes': 'sharedRecipes'
+	}
 
-	cursor.close()
-	conn.close()
-	return retAttr
+	# Check if the attribute is valid
+	if attr not in ATTR_MAP:
+		return ''
+
+	# Construct the SQL query using the column name from the mapping
+	sql_query = f'SELECT {ATTR_MAP[attr]} FROM tUsers WHERE userID=%s'
+
+	try:
+		conn = ghConn()
+		cursor = conn.cursor()
+		cursor.execute(sql_query, (user,))
+		result = cursor.fetchone()
+		
+		if result:
+			# Special case for pictureName if it's empty or None
+			if attr == 'pictureName' and (not result[0] or result[0] == ''):
+				return 'default'
+			return result[0]
+		else:
+			return ''
+
+	except Exception as e:
+		# Optionally, you can log the error here
+		logger.error(f"Error fetching attribute '{attr}' for user '{user}': {e}")
+		return ''
+	
+	finally:
+		cursor.close()
+		conn.close()
 
 # Returns total amount user has donated to the site
 def getUserDonated(user):
@@ -320,7 +343,7 @@ def getUserTitle(user):
 def getUserStats(user, galaxy):
 	conn = ghConn()
 	cursor = conn.cursor()
-    # Galaxy 0 passed just combine stats for all galaxies
+	# Galaxy 0 passed just combine stats for all galaxies
 	if (galaxy == 0):
 		cursor.execute('SELECT Sum(added), Sum(planet), Sum(edited), Sum(removed), Sum(verified), Sum(waypoint), Sum(repGood), Sum(repBad) FROM tUserStats WHERE userID = %s', [user])
 	else:
@@ -349,16 +372,28 @@ def getUserAdmin(conn, user, galaxy):
 	cursor.close()
 	return admin
 
-def getGalaxyAdminList(conn, userID):
-        listHTML = ''
-        cursor = conn.cursor()
-        cursor.execute("SELECT tGalaxyUser.galaxyID, galaxyName FROM tGalaxyUser INNER JOIN tGalaxy ON tGalaxyUser.galaxyID = tGalaxy.galaxyID WHERE tGalaxyUser.userID='{0}' AND roleType='a' ORDER BY galaxyName;".format(userID))
-        row = cursor.fetchone()
-        while row != None:
-                listHTML += '<option value="{0}">{1}</option>'.format(row[0], row[1])
-                row = cursor.fetchone()
-        cursor.close()
-        return listHTML
+def getGalaxyAdminList(userID):
+    conn = ghConn()
+    cursor = conn.cursor()
+
+    # Using parameterized query
+    query = ("SELECT tGalaxyUser.galaxyID, galaxyName "
+             "FROM tGalaxyUser "
+             "INNER JOIN tGalaxy ON tGalaxyUser.galaxyID = tGalaxy.galaxyID "
+             "WHERE tGalaxyUser.userID=%s AND roleType='a' "
+             "ORDER BY galaxyName;")
+    cursor.execute(query, (userID,))
+
+    rows = cursor.fetchall()
+
+    # Using a list comprehension to generate the HTML
+    listHTML = ''.join('<option value="{0}">{1}</option>'.format(row[0], row[1]) for row in rows)
+
+    cursor.close()
+    conn.close()
+
+    return listHTML
+
 
 def getLastResourceChange():
 	conn = ghConn()
@@ -425,15 +460,15 @@ def galaxyState(galaxyID):
 	return retVal
 
 def getGalaxyAdmins(conn, galaxyID):
-        admins = []
-        cursor = conn.cursor()
-        cursor.execute("SELECT userID FROM tGalaxyUser WHERE galaxyID=%s AND roleType='a';", [galaxyID])
-        row = cursor.fetchone()
-        while row != None:
-                admins.append(row[0])
-                row = cursor.fetchone()
-        cursor.close()
-        return admins
+		admins = []
+		cursor = conn.cursor()
+		cursor.execute("SELECT userID FROM tGalaxyUser WHERE galaxyID=%s AND roleType='a';", [galaxyID])
+		row = cursor.fetchone()
+		while row != None:
+				admins.append(row[0])
+				row = cursor.fetchone()
+		cursor.close()
+		return admins
 
 def friendStatus(uid, ofUser):
 	# 0 = None, 1 = Added, 2 = Reciprocated
@@ -528,7 +563,7 @@ def checkUserAbilities(conn, userID, galaxy):
 			alertNewAbility(conn, userID, k, galaxy)
 
 def alertNewAbility(conn, userID, abilityKey, galaxy):
-    # Add alert with custom message about new ability user has unlocked
+	# Add alert with custom message about new ability user has unlocked
 	message = "Congratuations!  You have unlocked a new ability on Galaxy Harvester in {1} galaxy.  You can now {0}.  Thanks for your contributions, and keep the the good work!".format(ghShared.ABILITY_DESCR[abilityKey], ghNames.getGalaxyName(galaxy))
 	alertLink = "{0}user.py/{1}".format(ghShared.BASE_SCRIPT_URL, userID)
 	alertcursor = conn.cursor()
