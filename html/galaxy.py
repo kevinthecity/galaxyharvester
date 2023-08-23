@@ -30,25 +30,37 @@ import pymysql
 import ghShared
 import env
 import ghLists
+import logger
 from jinja2 import Environment, FileSystemLoader
 
-
-# Get extra planets for a galaxy or the available ones they can add
-def getPlanetList(conn, galaxy, available):
+def getPlanetList(galaxy, available):
 	listHTML = ''
-	if not galaxy.isdigit():
+	
+	# Ensure the galaxy value is an integer
+	try:
+		galaxy = int(galaxy)
+	except ValueError:
 		galaxy = 0
+
+	# Choose the SQL query based on the availability value
 	if available > 0:
-		planetSQL = 'SELECT planetID, planetName FROM tPlanet WHERE planetID > 10 AND planetID NOT IN (SELECT planetID FROM tGalaxyPlanet WHERE galaxyID={0}) ORDER BY planetName;'.format(galaxy)
+		planetSQL = ('SELECT planetID, planetName FROM tPlanet '
+					 'WHERE planetID > 10 AND planetID NOT IN '
+					 '(SELECT planetID FROM tGalaxyPlanet WHERE galaxyID=%s) '
+					 'ORDER BY planetName;')
 	else:
-		planetSQL = 'SELECT tGalaxyPlanet.planetID, planetName FROM tGalaxyPlanet INNER JOIN tPlanet ON tGalaxyPlanet.planetID=tPlanet.planetID WHERE tGalaxyPlanet.planetID > 10 AND tGalaxyPlanet.galaxyID={0} ORDER BY planetName;'.format(galaxy)
-	cursor = conn.cursor()
-	cursor.execute(planetSQL)
-	row = cursor.fetchone()
-	while row != None:
-		listHTML += '<option value="{0}">{1}</option>'.format(row[0], row[1])
-		row = cursor.fetchone()
-	cursor.close()
+		planetSQL = ('SELECT tGalaxyPlanet.planetID, planetName FROM tGalaxyPlanet '
+					 'INNER JOIN tPlanet ON tGalaxyPlanet.planetID=tPlanet.planetID '
+					 'WHERE tGalaxyPlanet.planetID > 10 AND tGalaxyPlanet.galaxyID=%s '
+					 'ORDER BY planetName;')
+
+	conn = dbShared.ghConn()
+	# Execute the SQL query and build the HTML list
+	with conn.cursor() as cursor:
+		cursor.execute(planetSQL, (galaxy,))
+		for row in cursor.fetchall():
+			listHTML += '<option value="{0}">{1}</option>'.format(row[0], row[1])
+	conn.close()
 	return listHTML
 
 def main():
@@ -130,11 +142,13 @@ def main():
 
 	if len(path) > 0:
 		galaxy = dbShared.dbInsertSafe(path[0])
-		conn = dbShared.ghConn()
-		galaxyAdminList = dbShared.getGalaxyAdminList(conn, currentUser)
-		availablePlanetList = getPlanetList(conn, galaxy, 1)
+
+		galaxyAdminList = dbShared.getGalaxyAdminList(currentUser)
+		availablePlanetList = getPlanetList(galaxy, 1)
+
 		if galaxy.isdigit():
 			# get the galaxy details for edit
+			conn = dbShared.ghConn()
 			galaxyCursor = conn.cursor()
 			galaxyCursor.execute('SELECT galaxyName, galaxyState, galaxyNGE, website FROM tGalaxy WHERE galaxyID={0};'.format(galaxy))
 			galaxyRow = galaxyCursor.fetchone()
@@ -145,8 +159,8 @@ def main():
 					galaxyCheckedNGE = 'checked'
 				galaxyWebsite = galaxyRow[3]
 			galaxyCursor.close()
-			galaxyPlanetList = getPlanetList(conn, galaxy, 0)
-			galaxyAdmins = dbShared.getGalaxyAdmins(conn, galaxy)
+			galaxyPlanetList = getPlanetList(galaxy, 0)
+			galaxyAdmins = dbShared.getGalaxyAdmins(galaxy)
 			conn.close()
 		else:
 			galaxyAdmins = [currentUser]

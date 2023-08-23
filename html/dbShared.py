@@ -373,26 +373,21 @@ def getUserAdmin(conn, user, galaxy):
 	return admin
 
 def getGalaxyAdminList(userID):
-    conn = ghConn()
-    cursor = conn.cursor()
+	with ghConn() as conn:
+		with conn.cursor() as cursor:
+			# Using parameterized query
+			query = ("SELECT tGalaxyUser.galaxyID, galaxyName "
+					"FROM tGalaxyUser "
+					"INNER JOIN tGalaxy ON tGalaxyUser.galaxyID = tGalaxy.galaxyID "
+					"WHERE tGalaxyUser.userID=%s AND roleType='a' "
+					"ORDER BY galaxyName;")
+			cursor.execute(query, (userID,))
+			rows = cursor.fetchall()
 
-    # Using parameterized query
-    query = ("SELECT tGalaxyUser.galaxyID, galaxyName "
-             "FROM tGalaxyUser "
-             "INNER JOIN tGalaxy ON tGalaxyUser.galaxyID = tGalaxy.galaxyID "
-             "WHERE tGalaxyUser.userID=%s AND roleType='a' "
-             "ORDER BY galaxyName;")
-    cursor.execute(query, (userID,))
+	# Using a list comprehension to generate the HTML
+	listHTML = ''.join('<option value="{0}">{1}</option>'.format(row[0], row[1]) for row in rows)
 
-    rows = cursor.fetchall()
-
-    # Using a list comprehension to generate the HTML
-    listHTML = ''.join('<option value="{0}">{1}</option>'.format(row[0], row[1]) for row in rows)
-
-    cursor.close()
-    conn.close()
-
-    return listHTML
+	return listHTML
 
 
 def getLastResourceChange():
@@ -459,16 +454,13 @@ def galaxyState(galaxyID):
 	conn.close()
 	return retVal
 
-def getGalaxyAdmins(conn, galaxyID):
-		admins = []
-		cursor = conn.cursor()
-		cursor.execute("SELECT userID FROM tGalaxyUser WHERE galaxyID=%s AND roleType='a';", [galaxyID])
-		row = cursor.fetchone()
-		while row != None:
-				admins.append(row[0])
-				row = cursor.fetchone()
-		cursor.close()
-		return admins
+def getGalaxyAdmins(galaxyID):
+	admins = []
+	with ghConn() as conn:
+		with conn.cursor() as cursor:
+			cursor.execute("SELECT userID FROM tGalaxyUser WHERE galaxyID=%s AND roleType='a';", (galaxyID,))
+			admins = [row[0] for row in cursor.fetchall()]
+	return admins
 
 def friendStatus(uid, ofUser):
 	# 0 = None, 1 = Added, 2 = Reciprocated

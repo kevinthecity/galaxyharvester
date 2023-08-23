@@ -222,7 +222,7 @@ if (errstr == ""):
 					result = "Error: You may not change the status of this galaxy until it has been approved by the site administrator.\n"
 				else:
 					# Get user galaxy admin status
-					adminList = dbShared.getGalaxyAdminList(conn, currentUser)
+					adminList = dbShared.getGalaxyAdminList(currentUser)
 					if '<option value="{0}">'.format(galaxy) in adminList:
 						result = updateGalaxy(galaxy, galaxyName, galaxyState, galaxyNGE, galaxyWebsite, galaxyPlanets, galaxyAdmins)
 					else:
