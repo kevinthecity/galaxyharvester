@@ -21,27 +21,14 @@
 """
 
 import os
-import sys
-import cgi
-from http import cookies
-import dbSession
 import dbShared
-import pymysql
 import ghShared
 import env
 import ghLists
-import logger
 from jinja2 import Environment, FileSystemLoader
+from utils import setup_user_environment
 
-def getPlanetList(galaxy, available):
-	listHTML = ''
-	
-	# Ensure the galaxy value is an integer
-	try:
-		galaxy = int(galaxy)
-	except ValueError:
-		galaxy = 0
-
+def get_planet_list(galaxy, available):
 	# Choose the SQL query based on the availability value
 	if available > 0:
 		planetSQL = ('SELECT planetID, planetName FROM tPlanet '
@@ -54,127 +41,83 @@ def getPlanetList(galaxy, available):
 					 'WHERE tGalaxyPlanet.planetID > 10 AND tGalaxyPlanet.galaxyID=%s '
 					 'ORDER BY planetName;')
 
-	conn = dbShared.ghConn()
 	# Execute the SQL query and build the HTML list
-	with conn.cursor() as cursor:
-		cursor.execute(planetSQL, (galaxy,))
-		for row in cursor.fetchall():
-			listHTML += '<option value="{0}">{1}</option>'.format(row[0], row[1])
-	conn.close()
+	listHTML = ''
+	with dbShared.ghConn() as conn:
+		with conn.cursor() as cursor:
+			cursor.execute(planetSQL, (galaxy,))
+			for row in cursor.fetchall():
+				listHTML += '<option value="{0}">{1}</option>'.format(row[0], row[1])
 	return listHTML
 
 def main():
-	useCookies = 1
-	linkappend = ''
-	logged_state = 0
-	currentUser = ''
+
+	user_env = setup_user_environment()
+	url=user_env['url']
+	currentUser=user_env['currentUser']
+	loginResult=user_env['loginResult']
+	uiTheme=user_env['uiTheme']
+	galaxy=user_env['galaxy']
+	logged_state=user_env['logged_state']
+	linkappend=user_env['linkappend']
+	pictureName=user_env['pictureName']
+
 	msgHTML = ''
-	galaxy = ''
-	uiTheme = ''
 	galaxyName = ''
 	galaxyState = 0
 	galaxyCheckedNGE = ''
 	galaxyWebsite = ''
-	galaxyAdminList = []
 	galaxyPlanetList = []
 	availablePlanetList = []
-	galaxyAdmins = []
-	# Get current url
-	try:
-		url = os.environ['SCRIPT_NAME']
-	except KeyError:
-		url = ''
+	galaxyAdminList = dbShared.getGalaxyAdminList(currentUser)
 
-	form = cgi.FieldStorage()
-	# Get Cookies
-
-	C = cookies.SimpleCookie()
-	try:
-		C.load(os.environ['HTTP_COOKIE'])
-	except KeyError:
-		useCookies = 0
-
-	if useCookies:
-		try:
-			currentUser = C['userID'].value
-		except KeyError:
-			currentUser = ''
-		try:
-			loginResult = C['loginAttempt'].value
-		except KeyError:
-			loginResult = 'success'
-		try:
-			sid = C['gh_sid'].value
-		except KeyError:
-			sid = form.getfirst('gh_sid', '')
-		try:
-			uiTheme = C['uiTheme'].value
-		except KeyError:
-			uiTheme = ''
+	if not galaxy:
+		galaxyAdmins = [currentUser]
+		msgHTML = '<h2>Please enter galaxy details for review.</h2>'
 	else:
-		loginResult = form.getfirst('loginAttempt', '')
-		sid = form.getfirst('gh_sid', '')
+		availablePlanetList = get_planet_list(galaxy, 1)
+		galaxyPlanetList = get_planet_list(galaxy, 0)
+		galaxyAdmins = dbShared.getGalaxyAdmins(galaxy)
 
-	# escape input to prevent sql injection
-	sid = dbShared.dbInsertSafe(sid)
+		with dbShared.ghConn() as conn:
+			with conn.cursor() as galaxyCursor:
+				galaxyCursor.execute('SELECT galaxyName, galaxyState, galaxyNGE, website FROM tGalaxy WHERE galaxyID={0};'.format(galaxy))
+				galaxyRow = galaxyCursor.fetchone()
+				if galaxyRow != None:
+					galaxyName = galaxyRow[0]
+					galaxyState = galaxyRow[1]
+					if galaxyRow[2] > 0:
+						galaxyCheckedNGE = 'checked'
+					galaxyWebsite = galaxyRow[3]
 
-	# Get a session
-
-	if loginResult == None:
-		loginResult = 'success'
-
-	sess = dbSession.getSession(sid)
-	if (sess != ''):
-		logged_state = 1
-		currentUser = sess
-		if (uiTheme == ''):
-			uiTheme = dbShared.getUserAttr(currentUser, 'themeName')
-		if (useCookies == 0):
-			linkappend = 'gh_sid=' + sid
-	else:
-		if (uiTheme == ''):
-			uiTheme = 'crafter'
-
-	path = ['']
-	if 'PATH_INFO' in os.environ:
-		path = os.environ['PATH_INFO'].split('/')[1:]
-		path = [p for p in path if p != '']
-
-	if len(path) > 0:
-		galaxy = dbShared.dbInsertSafe(path[0])
-
-		galaxyAdminList = dbShared.getGalaxyAdminList(currentUser)
-		availablePlanetList = getPlanetList(galaxy, 1)
-
-		if galaxy.isdigit():
-			# get the galaxy details for edit
-			conn = dbShared.ghConn()
-			galaxyCursor = conn.cursor()
-			galaxyCursor.execute('SELECT galaxyName, galaxyState, galaxyNGE, website FROM tGalaxy WHERE galaxyID={0};'.format(galaxy))
-			galaxyRow = galaxyCursor.fetchone()
-			if galaxyRow != None:
-				galaxyName = galaxyRow[0]
-				galaxyState = galaxyRow[1]
-				if galaxyRow[2] > 0:
-					galaxyCheckedNGE = 'checked'
-				galaxyWebsite = galaxyRow[3]
-			galaxyCursor.close()
-			galaxyPlanetList = getPlanetList(galaxy, 0)
-			galaxyAdmins = dbShared.getGalaxyAdmins(galaxy)
-			conn.close()
-		else:
-			galaxyAdmins = [currentUser]
-			msgHTML = '<h2>Please enter galaxy details for review.</h2>'
-	else:
-		msgHTML = '<h2>No Galaxy found in URL path.</h2>'
-
-	pictureName = dbShared.getUserAttr(currentUser, 'pictureName')
 	print('Content-type: text/html\n')
 	environ = Environment(loader=FileSystemLoader('templates'))
 	environ.globals['BASE_SCRIPT_URL'] = ghShared.BASE_SCRIPT_URL
 	environ.globals['MOBILE_PLATFORM'] = ghShared.getMobilePlatform(os.environ['HTTP_USER_AGENT'])
 	template = environ.get_template('galaxy.html')
-	print(template.render(uiTheme=uiTheme, loggedin=logged_state, currentUser=currentUser, pictureName=pictureName, loginResult=loginResult, linkappend=linkappend, url=url, imgNum=ghShared.imgNum, galaxyID=galaxy, galaxyList=ghLists.getGalaxyList(), msgHTML=msgHTML, galaxyName=galaxyName, galaxyState=galaxyState, galaxyCheckedNGE=galaxyCheckedNGE, galaxyWebsite=galaxyWebsite, galaxyStatusList=ghLists.getGalaxyStatusList(), galaxyPlanetList=galaxyPlanetList, availablePlanetList=availablePlanetList, galaxyAdminList=galaxyAdminList, galaxyAdmins=galaxyAdmins, enableCAPTCHA=env.RECAPTCHA_ENABLED, siteidCAPTCHA=env.RECAPTCHA_SITEID))
+	print(template.render(
+		uiTheme=uiTheme, 
+		loggedin=logged_state, 
+		currentUser=currentUser, 
+		pictureName=pictureName, 
+		loginResult=loginResult, 
+		linkappend=linkappend, 
+		url=url, 
+		imgNum=ghShared.imgNum, 
+		galaxyID=galaxy, 
+		galaxyList=ghLists.getGalaxyList(), 
+		msgHTML=msgHTML, 
+		galaxyName=galaxyName, 
+		galaxyState=galaxyState, 
+		galaxyCheckedNGE=galaxyCheckedNGE, 
+		galaxyWebsite=galaxyWebsite, 
+		galaxyStatusList=ghLists.getGalaxyStatusList(), 
+		galaxyPlanetList=galaxyPlanetList, 
+		availablePlanetList=availablePlanetList, 
+		galaxyAdminList=galaxyAdminList, 
+		galaxyAdmins=galaxyAdmins, 
+		enableCAPTCHA=env.RECAPTCHA_ENABLED, 
+		siteidCAPTCHA=env.RECAPTCHA_SITEID))
 
 
 if __name__ == "__main__":

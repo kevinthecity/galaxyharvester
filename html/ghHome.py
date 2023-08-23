@@ -31,6 +31,7 @@ import dbShared
 from collections import namedtuple
 from jinja2 import Environment, FileSystemLoader
 import logger
+from utils import setup_user_environment
 
 # Define namedtuples to group related parameters
 UserDetails = namedtuple('UserDetails', ['uiTheme', 'currentUser', 'loginResult', 'pictureName'])
@@ -38,26 +39,6 @@ GalaxyDetails = namedtuple('GalaxyDetails', ['galaxy', 'galaxyList', 'galaxyAdmi
 RenderSettings = namedtuple('RenderSettings', ['loggedin', 'linkappend', 'url', 'imgNum', 'enableCAPTCHA', 'siteidCAPTCHA'])
 ResourceDetails = namedtuple('ResourceDetails', ['resourceGroupListShort', 'professionList', 'planetList', 'resourceGroupList', 'resourceTypeList'])
 Metrics = namedtuple('Metrics', ['totalAmt', 'percentOfGoal'])
-
-def get_value_from_cookie(cookie, key, default=None):
-	try:
-		return cookie[key].value
-	except KeyError:
-		return default
-
-def get_value_from_form_or_cookie(form, cookie, key, default=None):
-	return form.getfirst(key, get_value_from_cookie(cookie, key, default))
-
-def setup_environment():
-	url = os.environ.get('SCRIPT_NAME', '')
-	form = cgi.FieldStorage()
-	use_cookies = bool(os.environ.get('HTTP_COOKIE'))
-
-	c = cookies.SimpleCookie()
-	if use_cookies:
-		c.load(os.environ['HTTP_COOKIE'])
-	
-	return url, form, use_cookies, c
 
 def get_donation_total():
 	totalAmt = 0.00
@@ -84,22 +65,6 @@ def get_galaxy_admin(currentUser):
 	else:
 		galaxyAdmin = 0
 	return galaxyAdmin
-
-def get_galaxy_from_url(cookies):
-	# Allow for specifying galaxy in URL
-	galaxy = None
-	path = []
-	if 'PATH_INFO' in os.environ:
-		path = os.environ['PATH_INFO'].split('/')[1:]
-		path = [p for p in path if p != '']
-
-	if len(path) > 0 and path[0].isdigit():
-		galaxy = dbShared.dbInsertSafe(path[0])
-		cookies['galaxy'] = path[0]
-		cookies['galaxy']['path'] = '/'
-		print(cookies)
-	
-	return galaxy
 
 def render(
 		user: UserDetails, 
@@ -145,45 +110,18 @@ def render_login(userId, loginResult):
 
 def main():
 
-	# logger.info(env.DB_NAME)
-	# logger.info(env.DB_PASS)
+	user_env = setup_user_environment()
+	url=user_env['url']
+	currentUser=user_env['currentUser']
+	loginResult=user_env['loginResult']
+	uiTheme=user_env['uiTheme']
+	galaxy=user_env['galaxy']
+	logged_state=user_env['logged_state']
+	linkappend=user_env['linkappend']
+	pictureName=user_env['pictureName']
 	
-	SUCCESS_LOGIN = 'success'
-
-	url, form, use_cookies, c = setup_environment()
-
-	currentUser = get_value_from_cookie(c, 'userID')
-	loginResult = get_value_from_cookie(c, 'loginAttempt', SUCCESS_LOGIN)
-	sid = get_value_from_form_or_cookie(form, c, 'gh_sid')
-	uiTheme = get_value_from_cookie(c, 'uiTheme', ghShared.DEFAULT_THEME)
-	galaxy = get_value_from_form_or_cookie(form, c, 'galaxy', ghShared.DEFAULT_GALAXY)
-
-	# Get a session
-	logged_state = 0
-	linkappend = ''
-	
-	sess = dbSession.getSession(sid)
-	# Check session validity
-	if sess:
-		logged_state = 1
-		currentUser = sess
-		
-		# Get user-specific theme if not provided
-		uiTheme = uiTheme or dbShared.getUserAttr(currentUser, 'themeName')
-		
-		# Set link append if cookies are not used
-		if not use_cookies:
-			linkappend = 'gh_sid=' + sid
-	else:
-		if env.REQUIRE_LOGIN:
-			# If not logged in, render the login only page
-			render_login(currentUser, loginResult)
-			return
-	
-	galaxy = get_galaxy_from_url(c) or galaxy
 	totalAmt, percentOfGoal = get_donation_total()
 	galaxyAdmin = get_galaxy_admin(currentUser)
-	pictureName = dbShared.getUserAttr(currentUser, 'pictureName')
 
 	user_details = UserDetails(
 		uiTheme=uiTheme, 
