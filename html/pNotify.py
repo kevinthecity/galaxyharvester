@@ -26,6 +26,7 @@ import cgi
 import dbShared
 import pymysql
 import sys
+import env
 
 PP_URL = "https://ipnpb.sandbox.paypal.com/cgi-bin/webscr"
 #PP_URL = "https://ipnpb.paypal.com/cgi-bin/webscr"
@@ -44,7 +45,7 @@ def verify_ipn(data):
 		return False
  
 	# if not the correct receiver
-	if not data["receiver_email"] == "galaxyharvester@gmail.com":
+	if not data["receiver_email"] == env.MAIL_USER:
 		return False
  
 	# otherwise...

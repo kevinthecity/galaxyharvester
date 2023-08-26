@@ -1947,8 +1947,8 @@ function attachCategoryEvents() {
 		$(this).children("span.statMax").hide("fast");
 	});
 }
-function contactMessage() {
-	alert('If you have a question, problem, or suggestion with the site, please send an email to galaxyharvester@gmail.com');
+function contactMessage(noReplyEmail) {
+    alert(`If you have a question, problem, or suggestion with the site, please send an email to ${noReplyEmail}`);
 }
 String.prototype.trim = function () {
   return this.replace(/^\s*/, "").replace(/\s*$/, "");

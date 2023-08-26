@@ -103,8 +103,8 @@ if (sess != ''):
 def sendGalaxyNotifyMail(galaxyID, galaxyName, user):
 	# send message
 	message = EmailMessage()
-	message['From'] = "\"Galaxy Harvester Registration\" <admin@galaxyharvester.net>"
-	message['To'] = "galaxyharvester@gmail.com"
+	message['From'] = f"\"Galaxy Harvester Registration\" <{env.MAIL_USER}>"
+	message['To'] = env.CONTACT_EMAIL
 	message['Subject'] = "New Galaxy Submitted For Review"
 	link = "http://galaxyharvester.net/galaxy.py/{0}".format(galaxyID)
 	message.set_content(user + " has submitted a new galaxy for review.\n\n" + link)

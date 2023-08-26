@@ -21,12 +21,10 @@
 """
 
 import time
-from datetime import timedelta, datetime
+from datetime import datetime
 import random
 import os
-import sys
 import math
-import env
 
 BASE_SCRIPT_URL = '/'
 DEFAULT_THEME = 'crafter'

@@ -23,3 +23,5 @@ ALERTMAIL_USER = os.environ.get('ALERTMAIL_USER')
 RECAPTCHA_ENABLED = os.environ.get('RECAPTCHA_ENABLED', 'False').lower() in ('true', '1', 't', 'y', 'yes')
 RECAPTCHA_SITEID = os.environ.get('RECAPTCHA_SITEID')
 RECAPTCHA_KEY = os.environ.get('RECAPTCHA_KEY')
+
+CONTACT_EMAIL = os.environ.get('CONTACT_EMAIL')
