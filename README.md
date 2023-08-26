@@ -32,7 +32,6 @@ The site configuration files should exist in the folder above the web site root 
 
 * Update env.py so host, user, and password reflect your mysql server info if not using default webuser
 * Update env.py so outgoing mail server and login info is set properly
-* Check kukkaisvoima_settings.py for Blog admin settings customization
 
 
 ### Site Maintenance Jobs (Cron, etc):
